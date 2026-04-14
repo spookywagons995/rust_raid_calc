@@ -3,5 +3,5 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/rust-raid-calc/',
+  base: '/rust_raid_calc/',
 })
