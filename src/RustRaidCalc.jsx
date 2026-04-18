@@ -318,24 +318,34 @@ function CraftingPage({mT, selectedMethod, quickMode, quickQty}) {
   const r1=28, r2=r1+nh+gy, r3=r2+nh+gy;
   const rGP = r1 + (nh+gy)/2;
 
-  // Extra raw resources stacked below metal row
-  const extraRes = [];
-  if (hasLGF) extraRes.push({key:"lowGrade",icon:ICONS.lowGrade,label:"Low grade",amount:t("lowGrade"),color:"#6D5B00"});
-  if (t("cloth")>0) extraRes.push({key:"cloth",icon:ICONS.cloth,label:"Cloth",amount:t("cloth"),color:"#8b7355"});
-  if (t("techTrash")>0) extraRes.push({key:"techTrash",icon:ICONS.techTrash,label:"Tech trash",amount:t("techTrash"),color:"#40a0c0"});
-  if (t("pipe")>0) extraRes.push({key:"pipe",icon:ICONS.pipe,label:"Metal pipe",amount:t("pipe"),color:"#a0a0a0"});
-  if (t("rope")>0) extraRes.push({key:"rope",icon:ICONS.rope,label:"Rope",amount:t("rope"),color:"#8b7355"});
-
   const extraStartY = r3 + nh + gy;
   const rExp = hasBean ? r1 : rGP;
   const rBean = r2 + 8;
   const rFinal = hasBean ? r1 + nh/2 + gy/2 : rGP;
 
-  // Craft column target Y for extra arrows
-  const craftCol = (hasExp||hasBean) ? cols[3] : lastCol;
-  const craftTargetY = (hasExp) ? rExp + nh/2 : (hasBean ? rBean + nh/2 : rFinal + nh/2);
+  // Extras placed in the column just before the step where they're consumed.
+  // LGF feeds into Explosives (CRAFT step); cloth/tech trash/pipe/rope feed into the FINAL item.
+  const extras = [];
+  if (hasLGF) {
+    const tgtY = hasExp ? rExp + nh/2 : (hasBean ? rBean + nh/2 : rFinal + nh/2);
+    extras.push({key:"lowGrade",icon:ICONS.lowGrade,label:"Low grade",amount:t("lowGrade"),color:"#6D5B00",colIdx:2,tgtX:cols[3],tgtY});
+  }
+  if (t("cloth")>0)     extras.push({key:"cloth",    icon:ICONS.cloth,    label:"Cloth",      amount:t("cloth"),    color:"#8b7355",colIdx:3,tgtX:cols[4],tgtY:rFinal+nh/2});
+  if (t("techTrash")>0) extras.push({key:"techTrash",icon:ICONS.techTrash,label:"Tech trash", amount:t("techTrash"),color:"#40a0c0",colIdx:3,tgtX:cols[4],tgtY:rFinal+nh/2});
+  if (t("pipe")>0)      extras.push({key:"pipe",     icon:ICONS.pipe,     label:"Metal pipe", amount:t("pipe"),     color:"#a0a0a0",colIdx:3,tgtX:cols[4],tgtY:rFinal+nh/2});
+  if (t("rope")>0)      extras.push({key:"rope",     icon:ICONS.rope,     label:"Rope",       amount:t("rope"),     color:"#8b7355",colIdx:3,tgtX:cols[4],tgtY:rFinal+nh/2});
 
-  const lastRow = extraRes.length > 0 ? extraStartY + (extraRes.length-1)*(nh+gy) + nh : r3 + nh;
+  // Stack extras independently within each column
+  const perCol = {};
+  extras.forEach(er => {
+    const i = perCol[er.colIdx] || 0;
+    er.y = extraStartY + i * (nh + gy);
+    perCol[er.colIdx] = i + 1;
+  });
+
+  const lastRow = extras.length > 0
+    ? Math.max(...extras.map(e => e.y + nh))
+    : r3 + nh;
   const svgH = Math.max(lastRow + 16, rFinal + nh + 16);
 
   return (
@@ -380,14 +390,13 @@ function CraftingPage({mT, selectedMethod, quickMode, quickQty}) {
             <FlowNode x={cols[1]} y={r3} icon={ICONS.metal} label="Metal frags" amount={t("metal")} color="#1e1e1e" borderColor="#aaa"/>
           </>}
 
-          {/* Extra raw resources (LGF, cloth, tech trash, pipe, rope) */}
-          {extraRes.map((er, idx) => {
-            const ey = extraStartY + idx * (nh + gy);
-            return <g key={er.key}>
-              <FlowNode x={cols[0]} y={ey} icon={er.icon} label={er.label} amount={er.amount} color="#1e1e1e" borderColor={er.color}/>
-              <FlowArrow x1={cols[0]+nw} y1={ey+nh/2} x2={craftCol} y2={craftTargetY} color={er.color}/>
-            </g>;
-          })}
+          {/* Extras (LGF, cloth, tech trash, pipe, rope) placed at consumption stage */}
+          {extras.map(er => (
+            <g key={er.key}>
+              <FlowNode x={cols[er.colIdx]} y={er.y} icon={er.icon} label={er.label} amount={er.amount} color="#1e1e1e" borderColor={er.color}/>
+              <FlowArrow x1={cols[er.colIdx]+nw} y1={er.y+nh/2} x2={er.tgtX} y2={er.tgtY} color={er.color}/>
+            </g>
+          ))}
 
           {/* Metal -> Explosives/Craft */}
           {hasExp && <>
