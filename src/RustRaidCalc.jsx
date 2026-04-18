@@ -308,6 +308,15 @@ function CraftingPage({mT, selectedMethod, quickMode, quickQty}) {
   const hasBean = t("beancan") > 0;
   const hasLGF = t("lowGrade") > 0;
 
+  // Derived GP (perUnit.gunpowder is 0 for explo ammo, so derive from charcoal: 30 charcoal → 10 GP)
+  const displayGP = Math.ceil(t("charcoal") / 3);
+  // Direct-flow amounts not captured by the main Sulfur→GP chain
+  const sulfurDirect = Math.max(0, t("sulfur") - displayGP * 2);
+  // GP per craft step (based on app data: 50 GP/explosive, 60 GP/beancan)
+  const gpForExp = hasExp ? t("explosives") * 50 : 0;
+  const gpForBean = hasBean ? t("beancan") * 60 : 0;
+  const gpDirect = Math.max(0, displayGP - gpForExp - gpForBean);
+
   // Layout
   const nw = 125, nh = 46, gx = 28, gy = 8;
   const cols = [16, 16+nw+gx, 16+(nw+gx)*2, 16+(nw+gx)*3, 16+(nw+gx)*4];
@@ -381,7 +390,7 @@ function CraftingPage({mT, selectedMethod, quickMode, quickQty}) {
           {/* Sulfur + Charcoal -> Gunpowder */}
           <FlowArrow x1={cols[1]+nw} y1={r1+nh/2} x2={cols[2]} y2={rGP+nh/2} color="#c4873b"/>
           <FlowArrow x1={cols[1]+nw} y1={r2+nh/2} x2={cols[2]} y2={rGP+nh/2} color="#666"/>
-          {t("gunpowder")>0 && <FlowNode x={cols[2]} y={rGP} icon={ICONS.gunpowder} label="Gunpowder" amount={t("gunpowder")} color="#2a1a18" borderColor="#c44a3b"/>}
+          {displayGP>0 && <FlowNode x={cols[2]} y={rGP} icon={ICONS.gunpowder} label="Gunpowder" amount={displayGP} color="#2a1a18" borderColor="#c44a3b"/>}
 
           {/* Metal row */}
           {t("metal")>0 && <>
@@ -402,12 +411,16 @@ function CraftingPage({mT, selectedMethod, quickMode, quickQty}) {
           {hasExp && <>
             <FlowArrow x1={cols[2]+nw} y1={rGP+nh/2} x2={cols[3]} y2={rExp+nh/2} color="#c44a3b"/>
             {t("metal")>0 && <FlowArrow x1={cols[1]+nw} y1={r3+nh/2} x2={cols[3]} y2={rExp+nh/2} color="#aaa"/>}
+            {/* Sulfur direct into Explosives (10 sulfur per explosive) */}
+            {sulfurDirect>0 && <FlowArrow x1={cols[1]+nw} y1={r1+6} x2={cols[3]} y2={rExp+6} color="#c4873b"/>}
             <FlowNode x={cols[3]} y={rExp} icon={ICONS.explosives} label="Explosives" amount={t("explosives")} color="#2a1818" borderColor="#e24b4a"/>
             <FlowArrow x1={cols[3]+nw} y1={rExp+nh/2} x2={cols[4]} y2={rFinal+nh/2} color="#e24b4a"/>
           </>}
 
           {hasBean && <>
             <FlowArrow x1={cols[2]+nw} y1={rGP+nh/2} x2={cols[3]} y2={rBean+nh/2} color="#d4537e"/>
+            {/* Metal into Beancans */}
+            {t("metal")>0 && <FlowArrow x1={cols[1]+nw} y1={r3+nh/2} x2={cols[3]} y2={rBean+nh/2} color="#aaa"/>}
             <FlowNode x={cols[3]} y={rBean} icon={ICONS.beancan} label="Beancans" amount={t("beancan")} color="#2a1820" borderColor="#d4537e"/>
             <FlowArrow x1={cols[3]+nw} y1={rBean+nh/2} x2={cols[4]} y2={rFinal+nh/2} color="#d4537e"/>
           </>}
@@ -415,7 +428,20 @@ function CraftingPage({mT, selectedMethod, quickMode, quickQty}) {
           {!hasExp && !hasBean && <>
             <FlowArrow x1={cols[2]+nw} y1={rGP+nh/2} x2={cols[3]} y2={rFinal+nh/2} color="#c4873b"/>
             {t("metal")>0 && <FlowArrow x1={cols[1]+nw} y1={r3+nh/2} x2={cols[3]} y2={rFinal+nh/2} color="#aaa"/>}
+            {/* Sulfur direct into Final (e.g., explo ammo) */}
+            {sulfurDirect>0 && <FlowArrow x1={cols[1]+nw} y1={r1+6} x2={cols[3]} y2={rFinal+6} color="#c4873b"/>}
           </>}
+
+          {/* GP direct into Final (e.g., rocket's 150 GP) — routed below to avoid overlap */}
+          {hasExp && gpDirect>0 && (() => {
+            const dy = rExp + nh + 14;
+            const gpX = cols[2] + nw - 12;
+            const fX = cols[4] + 12;
+            return <g>
+              <polyline points={`${gpX},${rGP+nh} ${gpX},${dy} ${fX},${dy} ${fX},${rFinal+nh+6}`} fill="none" stroke="#c44a3b" strokeWidth={2} strokeLinejoin="round"/>
+              <polygon points={`${fX},${rFinal+nh} ${fX-4},${rFinal+nh+6} ${fX+4},${rFinal+nh+6}`} fill="#c44a3b"/>
+            </g>;
+          })()}
 
           {/* Final item */}
           <FlowNode x={lastCol} y={rFinal} w={nw} icon={m.icon} label={m.label} amount={count} color="#2a2210" borderColor="#e5a44e"/>
